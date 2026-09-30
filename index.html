@@ -4,12 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#15161f">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ex-Libris">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Estante pessoal de livros lidos, com notas e anotações.">
+<!-- ícone embutido: evita o 404 de favicon.ico sem precisar de arquivo -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2315161f'/%3E%3Crect x='14' y='14' width='11' height='36' rx='2' fill='%23b0413a'/%3E%3Crect x='27' y='18' width='11' height='32' rx='2' fill='%2334538c'/%3E%3Crect x='40' y='12' width='11' height='38' rx='2' fill='%23d9bd7c'/%3E%3C/svg%3E">
 <title>Ex-Libris</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..700&family=Karla:ital,wght@0,300..700;1,400..600&display=swap" rel="stylesheet">
+<!-- chaves do Supabase: ficam fora deste arquivo para sobreviver às atualizações -->
+<script src="config.js" onerror="console.info('[Ex-Libris] config.js não encontrado: rodando em modo local')"></script>
 <style>
 /* ===========================================================
    Ex-Libris
@@ -171,8 +178,12 @@ button,[role="button"]{min-height:var(--alvo-min);touch-action:manipulation;curs
 
 /* ---------- estrelas ---------- */
 .estrelas{display:inline-flex;gap:2px;vertical-align:-2px}
-.estrelas svg{width:14px;height:14px}
-.estrelas .on{fill:var(--ouro)}.estrelas .off{fill:currentColor;opacity:.2}
+.est{position:relative;display:inline-block;width:14px;height:14px;line-height:0}
+.est svg{position:absolute;inset:0;width:100%;height:100%}
+.est .on{fill:var(--ouro)}
+.est .off{fill:currentColor;opacity:.2}
+/* a metade preenchida é a mesma estrela recortada ao meio */
+.est .meia{clip-path:inset(0 50% 0 0)}
 
 /* ---------- FAB, zona do polegar ---------- */
 .fab{
@@ -269,17 +280,21 @@ button,[role="button"]{min-height:var(--alvo-min);touch-action:manipulation;curs
 }
 .segmento button[aria-pressed="true"]{background:var(--texto);color:var(--fundo);border-color:var(--texto);font-weight:600}
 
-/* estrelas: 48px de alvo cada */
-.nota-input{display:flex;align-items:center;gap:2px;margin-left:-8px}
-.nota-input button{
-  width:var(--alvo);height:var(--alvo);border:none;background:none;padding:0;
-  display:flex;align-items:center;justify-content:center
+/* nota: estrelas como leitura e slider como controle */
+.nota-mostra{display:flex;align-items:center;gap:12px;margin-bottom:2px}
+.nota-mostra .estrelas{gap:5px}
+.nota-mostra .est{width:32px;height:32px}
+.nota-valor{
+  font-family:var(--serif);font-size:22px;min-width:34px;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em
 }
-.nota-input svg{width:30px;height:30px;transition:transform .12s}
-.nota-input .on{fill:var(--ouro)}
-.nota-input .off{fill:currentColor;opacity:.2}
-.nota-input button:active svg{transform:scale(1.2)}
-.limpar-nota{margin-left:6px;font-size:13px;color:var(--texto-2);background:none;border:none;padding:0 10px;min-height:var(--alvo)}
+.nota-valor.zero{opacity:.35}
+.nota-trilha{position:relative;padding:0 2px}
+.nota-marcas{
+  display:flex;justify-content:space-between;padding:0 12px;
+  font-size:11px;color:var(--texto-2);margin-top:-4px;font-variant-numeric:tabular-nums
+}
+.dica-nota{font-size:12.5px;color:var(--texto-2);margin-top:8px;line-height:1.45}
 
 /* capa */
 .capa-campo{display:flex;gap:14px;align-items:center}
@@ -339,12 +354,82 @@ button,[role="button"]{min-height:var(--alvo-min);touch-action:manipulation;curs
 }
 .recado.visivel{opacity:1;transform:translate(-50%,0)}
 .aviso{background:#b9852018;border:1px solid #b9852055;font-size:13.5px;padding:12px 14px;border-radius:var(--r);margin-bottom:14px;display:none;line-height:1.5}
+
+/* ---------- cenário: foto de fundo do usuário ---------- */
+#cenario{
+  position:fixed;inset:-12px;z-index:-2;display:none;
+  background-size:cover;background-position:center;background-repeat:no-repeat
+}
+#veu-cenario{position:fixed;inset:0;z-index:-1;display:none;background:#0a0b11}
+body.com-fundo{background:transparent}
+body.com-fundo #cenario,body.com-fundo #veu-cenario{display:block}
+html.com-fundo{background:#0f1018}
+/* com foto atrás, a sala e a barra viram vidro */
+body.com-fundo .sala{
+  background:linear-gradient(180deg,#1d1f2bb3,#15161fd9);
+  backdrop-filter:blur(4px);
+  box-shadow:inset 0 1px 0 #ffffff1f,0 18px 40px -26px #000
+}
+body.com-fundo .barra{background:color-mix(in srgb,var(--fundo) 62%,transparent)}
+body.com-fundo .resumo,body.com-fundo #titulo,body.com-fundo .nota-rodape{text-shadow:0 1px 12px #0009}
+
+.linha-marca{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* ---------- controles de ajuste ---------- */
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:var(--alvo);
+  background:none;margin:0;padding:0
+}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:var(--linha)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--texto);
+  border:3px solid var(--fundo);box-shadow:0 2px 6px #0004;margin-top:-11px
+}
+input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:var(--linha)}
+input[type=range]::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;background:var(--texto);
+  border:3px solid var(--fundo);box-shadow:0 2px 6px #0004
+}
+.linha-slider{display:flex;align-items:center;gap:14px}
+.valor-slider{font-size:13px;color:var(--texto-2);font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+.previa-fundo{
+  width:100%;aspect-ratio:16/9;max-height:170px;border-radius:var(--r);
+  border:1px solid var(--linha);background-size:cover;background-position:center;
+  background-color:var(--fundo-2);margin-bottom:12px;position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center
+}
+.previa-fundo .camada{position:absolute;inset:0;background:#0a0b11}
+.previa-fundo .aviso-vazio{position:relative;color:var(--texto-2);font-size:13.5px}
+.previa-fundo .amostra{
+  position:relative;font-family:var(--serif);font-size:19px;color:#f2efe8;
+  text-shadow:0 1px 10px #000a;letter-spacing:-.01em
+}
+.secao{margin:26px 0 14px;padding-top:22px;border-top:1px solid var(--linha)}
+.secao:first-child{margin-top:0;padding-top:0;border-top:none}
+.secao h3{font-family:var(--serif);font-size:17px;font-weight:500;margin:0 0 4px}
+.secao p.ajuda{font-size:13px;color:var(--texto-2);margin:0 0 16px;line-height:1.5}
+
+/* ---------- selo de sincronização ---------- */
+.selo-modo{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--texto-2);
+  border:1px solid var(--linha);border-radius:99px;padding:4px 11px
+}
+.selo-modo::before{content:"";width:7px;height:7px;border-radius:50%;background:#5c9e6a}
+.selo-modo.offline::before{background:#c9973f}
 </style>
 </head>
 <body>
 
+<div id="cenario"></div>
+<div id="veu-cenario"></div>
+
 <main class="app">
-  <div class="marca"><button id="titulo">Ex-Libris</button></div>
+  <div class="linha-marca">
+    <div class="marca"><button id="titulo">Ex-Libris</button></div>
+    <button class="icone" id="btn-ajustes" aria-label="Ajustes da estante">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 00.32 1.77l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.6 1.6 0 00-1.77-.32 1.6 1.6 0 00-.97 1.47V21a2 2 0 11-4 0v-.11a1.6 1.6 0 00-1.05-1.46 1.6 1.6 0 00-1.77.32l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.6 1.6 0 00.32-1.77 1.6 1.6 0 00-1.47-.97H3a2 2 0 110-4h.11a1.6 1.6 0 001.46-1.05 1.6 1.6 0 00-.32-1.77l-.06-.06a2 2 0 112.83-2.83l.06.06a1.6 1.6 0 001.77.32H9a1.6 1.6 0 00.97-1.47V3a2 2 0 114 0v.11a1.6 1.6 0 00.97 1.47 1.6 1.6 0 001.77-.32l.06-.06a2 2 0 112.83 2.83l-.06.06a1.6 1.6 0 00-.32 1.77V9a1.6 1.6 0 001.47.97H21a2 2 0 110 4h-.11a1.6 1.6 0 00-1.47.97z"/></svg>
+    </button>
+  </div>
   <div class="filete-ouro"></div>
   <p class="resumo" id="resumo">Carregando…</p>
 
@@ -395,6 +480,25 @@ button,[role="button"]{min-height:var(--alvo-min);touch-action:manipulation;curs
 "use strict";
 
 /* =========================================================
+   0. Supabase
+   As chaves vivem no config.js, ao lado deste arquivo, para
+   não se perderem quando o index.html for atualizado.
+   Sem chaves, o app salva apenas no navegador.
+   ========================================================= */
+var CFG = window.EXLIBRIS || {};
+var SUPABASE_URL  = CFG.SUPABASE_URL  || "";
+var SUPABASE_ANON = CFG.SUPABASE_ANON || "";
+
+if(!SUPABASE_URL || !SUPABASE_ANON){
+  console.info("[Ex-Libris] Sem chaves do Supabase. Modo local. "+
+               "Preencha SUPABASE_URL e SUPABASE_ANON no config.js.");
+} else {
+  console.info("[Ex-Libris] Supabase configurado:",SUPABASE_URL);
+}
+
+var NUVEM=null, canal=null;
+
+/* =========================================================
    1. Dados
    ========================================================= */
 var CORES = [
@@ -411,7 +515,8 @@ var ORDENS = [
   {v:"titulo", r:"Título"},{v:"autor", r:"Autor"}
 ];
 
-var livros=[], config={titulo:"Ex-Libris"};
+var livros=[], config={titulo:"Ex-Libris", veu:55, desfoque:0, tema:"auto"};
+var fundo={imagem:""};
 var filtro="todos", visao="estante", ordem="recente", termo="", selecionado=null;
 var db=null, modo="local", pronto=null;
 
@@ -429,12 +534,15 @@ function tocar(){ if(navigator.vibrate) try{navigator.vibrate(8);}catch(e){} }
 /* =========================================================
    2. Armazenamento: nuvem quando houver, navegador sempre
    ========================================================= */
-var LS_L="exlibris.livros.v1", LS_C="exlibris.config.v1";
+var LS_L="exlibris.livros.v1", LS_C="exlibris.config.v1", LS_F="exlibris.fundo.v1";
 function lerLocal(){
   try{
     livros=JSON.parse(localStorage.getItem(LS_L)||localStorage.getItem("estante.livros.v1")||"[]");
-    config=JSON.parse(localStorage.getItem(LS_C)||localStorage.getItem("estante.config.v1")||'{"titulo":"Ex-Libris"}');
+    var c=localStorage.getItem(LS_C)||localStorage.getItem("estante.config.v1");
+    if(c) config=Object.assign(config,JSON.parse(c));
   }catch(e){livros=[];}
+  /* a foto mora numa chave separada: se ela estourar o espaço, o resto sobrevive */
+  try{ fundo=JSON.parse(localStorage.getItem(LS_F)||'{"imagem":""}'); }catch(e){ fundo={imagem:""}; }
 }
 function gravarLocal(){
   try{
@@ -442,8 +550,13 @@ function gravarLocal(){
     localStorage.setItem(LS_C,JSON.stringify(config));
   }catch(e){aviso("Sem espaço para salvar neste navegador. Remova alguma capa pesada.");}
 }
+function gravarFundoLocal(){
+  try{ localStorage.setItem(LS_F,JSON.stringify(fundo)); return true; }
+  catch(e){ aviso("A foto de fundo não coube no armazenamento do navegador. Tente uma imagem menor."); return false; }
+}
 pronto=(function(){
   lerLocal();
+  if(SUPABASE_URL&&SUPABASE_ANON) return iniciarNuvem();
   if(!window.claude||!window.claude.use) return Promise.resolve();
   return window.claude.use("db").then(function(d){
     if(!d) return;
@@ -455,12 +568,19 @@ pronto=(function(){
         if(s.exists) config=Object.assign(config,s.data());
       }).catch(function(){});
     }).then(function(){
+      return d.doc("config/fundo").get().then(function(s){
+        if(s.exists&&s.data().imagem) fundo=s.data();
+      }).catch(function(){});
+    }).then(function(){
       d.collection("livros").onSnapshot(function(s){
         livros=s.docs.map(function(x){var o=Object.assign({},x.data());o.id=x.id;return o;});
         pintar();
       },function(){modo="local";});
       d.doc("config/geral").onSnapshot(function(s){
-        if(s.exists){config=Object.assign({},s.data());pintar();}
+        if(s.exists){config=Object.assign(config,s.data());pintar();}
+      },function(){});
+      d.doc("config/fundo").onSnapshot(function(s){
+        if(s.exists){fundo=s.data();aplicarCenario();}
       },function(){});
     });
   }).catch(function(){});
@@ -470,6 +590,7 @@ function salvarLivro(l){
   var i=livros.findIndex(function(x){return x.id===l.id;});
   if(i>=0) livros[i]=l; else livros.push(l);
   gravarLocal(); pintar();
+  if(modo==="supabase") return gravarLivroNaNuvem(l);
   if(modo==="db"&&db) return db.doc("livros/"+l.id).set(l).catch(function(){
     aviso("Salvo neste aparelho. A sincronização falhou.");
   });
@@ -478,19 +599,229 @@ function salvarLivro(l){
 function apagarLivro(id){
   livros=livros.filter(function(x){return x.id!==id;});
   gravarLocal(); pintar();
+  if(modo==="supabase"){
+    NUVEM.from("livros").delete().eq("id",id).then(function(r){
+      if(r.error) aviso("Removido aqui, mas o servidor recusou: "+r.error.message);
+    });
+    return;
+  }
   if(modo==="db"&&db) db.doc("livros/"+id).delete().catch(function(){});
 }
 function salvarConfig(){
-  gravarLocal(); pintar();
+  gravarLocal(); aplicarCenario(); pintar();
+  if(modo==="supabase"){ gravarPerfilNaNuvem(); return; }
   if(modo==="db"&&db) db.doc("config/geral").set(config).catch(function(){});
+}
+function salvarFundo(){
+  var ok=gravarFundoLocal();
+  aplicarCenario();
+  if(modo==="supabase"){ gravarPerfilNaNuvem(); return true; }
+  if(modo==="db"&&db){
+    /* uma foto pode estourar o limite do documento: falha aqui não derruba o resto */
+    db.doc("config/fundo").set(fundo).catch(function(){
+      aviso("A foto ficou salva só neste aparelho. Ela é grande demais para sincronizar.");
+    });
+  }
+  return ok;
+}
+
+/* =========================================================
+   2b. Supabase: sessão, leitura, escrita e imagens
+   ========================================================= */
+function iniciarNuvem(){
+  return import("https://esm.sh/@supabase/supabase-js@2")
+    .then(function(m){
+      NUVEM=m.createClient(SUPABASE_URL,SUPABASE_ANON,{auth:{persistSession:false}});
+      return carregarDaNuvem();
+    })
+    .catch(function(e){
+      console.error("[Ex-Libris] Supabase não carregou:",e);
+      aviso("Não consegui falar com o Supabase. Os dados estão sendo salvos só neste navegador.");
+      modo="local"; pintar();
+    });
+}
+
+/* tradução entre o formato do banco e o do app */
+function paraApp(r){
+  return {
+    id:r.id, titulo:r.titulo||"", autor:r.autor||"", status:r.status||"lido",
+    paginas:r.paginas||0, genero:r.genero||"", terminadoEm:r.terminado_em||"",
+    nota:r.nota||0, resenha:r.resenha||"", frase:r.frase||"",
+    capa:r.capa||"", cor:(r.cor==null?-1:r.cor), criadoEm:Number(r.criado_em)||Date.now()
+  };
+}
+function paraBanco(l){
+  return {
+    id:l.id, titulo:l.titulo, autor:l.autor||"",
+    status:l.status||"lido", paginas:Number(l.paginas)||0, genero:l.genero||"",
+    terminado_em:l.terminadoEm||null, nota:Number(l.nota)||0,
+    resenha:l.resenha||"", frase:l.frase||"", capa:l.capa||"",
+    cor:(l.cor==null?-1:l.cor), criado_em:l.criadoEm||Date.now()
+  };
+}
+
+function carregarDaNuvem(){
+  modo="supabase";
+  return Promise.all([
+    NUVEM.from("livros").select("*"),
+    NUVEM.from("perfil").select("*").eq("id","principal").maybeSingle()
+  ]).then(function(res){
+    var rl=res[0], rp=res[1];
+    if(rl.error) throw rl.error;
+
+    var locais=livros.slice();
+    livros=(rl.data||[]).map(paraApp);
+
+    /* primeira vez: sobe o que já existia neste navegador */
+    var faltando=locais.filter(function(l){
+      return !livros.some(function(x){return x.id===l.id;});
+    });
+    var envio=faltando.length
+      ? NUVEM.from("livros").upsert(faltando.map(paraBanco),{onConflict:"id"}).then(function(r){
+          if(r.error){ console.error("[Ex-Libris] migração:",r.error); return; }
+          livros=livros.concat(faltando);
+          recado(faltando.length+" livro(s) enviados para a nuvem");
+        })
+      : Promise.resolve();
+
+    if(rp&&rp.data){
+      config.titulo=rp.data.titulo||config.titulo;
+      config.veu=(rp.data.veu==null?config.veu:rp.data.veu);
+      config.desfoque=(rp.data.desfoque==null?config.desfoque:rp.data.desfoque);
+      config.tema=rp.data.tema||config.tema;
+      if(rp.data.fundo) fundo={imagem:rp.data.fundo};
+    }
+    return envio;
+  }).then(function(){
+    gravarLocal(); aplicarCenario(); pintar();
+    ouvirMudancas();
+    console.info("[Ex-Libris] conectado. Livros na nuvem:",livros.length);
+  }).catch(function(e){
+    console.error("[Ex-Libris] leitura falhou:",e);
+    aviso("Não consegui ler os dados na nuvem: "+(e.message||e));
+    modo="local"; pintar();
+  });
+}
+
+/* sincronia ao vivo entre aparelhos */
+function ouvirMudancas(){
+  if(canal||!NUVEM) return;
+  try{
+    canal=NUVEM.channel("livros-ao-vivo")
+      .on("postgres_changes",{event:"*",schema:"public",table:"livros"},function(p){
+        if(p.eventType==="DELETE"){
+          livros=livros.filter(function(x){return x.id!==p.old.id;});
+        } else {
+          var l=paraApp(p.new);
+          var i=livros.findIndex(function(x){return x.id===l.id;});
+          if(i>=0) livros[i]=l; else livros.push(l);
+        }
+        gravarLocal(); pintar();
+      }).subscribe();
+  }catch(e){ console.warn("[Ex-Libris] tempo real indisponível",e); }
+}
+
+function gravarLivroNaNuvem(l){
+  var corpoEnvio=paraBanco(l);
+  console.log("[Ex-Libris] enviando livro:",corpoEnvio);
+  return NUVEM.from("livros").upsert(corpoEnvio,{onConflict:"id"}).select()
+    .then(function(r){
+      if(r.error){
+        console.error("[Ex-Libris] ERRO ao gravar:",r.error);
+        aviso("O servidor recusou: "+r.error.message+(r.error.hint?" · "+r.error.hint:""));
+        recado("Não salvou na nuvem. Veja o aviso no topo.");
+        return;
+      }
+      console.log("[Ex-Libris] gravado com sucesso:",r.data);
+    })
+    .catch(function(e){
+      console.error("[Ex-Libris] EXCEÇÃO ao gravar:",e);
+      aviso("Falha de conexão ao salvar: "+(e.message||e));
+      recado("Não salvou na nuvem.");
+    });
+}
+function gravarPerfilNaNuvem(){
+  NUVEM.from("perfil").upsert({
+    id:"principal", titulo:config.titulo, veu:config.veu,
+    desfoque:config.desfoque, tema:config.tema, fundo:(fundo&&fundo.imagem)||""
+  },{onConflict:"id"}).then(function(r){
+    if(r.error){
+      console.error("[Ex-Libris] perfil:",r.error);
+      aviso("Ajustes salvos aqui, mas não na nuvem: "+r.error.message);
+    }
+  });
+}
+
+/* imagens vão para o Storage, não para o banco */
+function dataUriParaBlob(uri){
+  var partes=uri.split(","), tipo=(partes[0].match(/:(.*?);/)||[])[1]||"image/jpeg";
+  var bin=atob(partes[1]), n=bin.length, arr=new Uint8Array(n);
+  while(n--) arr[n]=bin.charCodeAt(n);
+  return new Blob([arr],{type:tipo});
+}
+function subirImagem(dataUri,pasta){
+  var blob=dataUriParaBlob(dataUri);
+  var caminho="estante/"+pasta+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,7)+".jpg";
+  return NUVEM.storage.from("imagens").upload(caminho,blob,{contentType:"image/jpeg",upsert:false})
+    .then(function(r){
+      if(r.error) throw r.error;
+      return NUVEM.storage.from("imagens").getPublicUrl(caminho).data.publicUrl;
+    });
+}
+/* devolve uma URL quando dá, e o próprio dado embutido quando não dá */
+function garantirImagem(dado,pasta){
+  if(!dado||modo!=="supabase"||dado.indexOf("data:")!==0) return Promise.resolve(dado||"");
+  return subirImagem(dado,pasta).catch(function(e){
+    console.error("[Ex-Libris] upload:",e);
+    aviso("A imagem não subiu para a nuvem e ficou guardada só neste aparelho.");
+    return dado;
+  });
+}
+
+
+/* aplica foto, escurecimento, desfoque e tema */
+function aplicarCenario(){
+  var cen=document.getElementById("cenario");
+  var vc=document.getElementById("veu-cenario");
+  var tem=!!(fundo&&fundo.imagem);
+  document.body.classList.toggle("com-fundo",tem);
+  document.documentElement.classList.toggle("com-fundo",tem);
+  if(tem){
+    cen.style.backgroundImage='url("'+fundo.imagem+'")';
+    cen.style.filter = config.desfoque ? "blur("+config.desfoque+"px)" : "";
+    vc.style.opacity = (Number(config.veu)||0)/100;
+  } else {
+    cen.style.backgroundImage="";
+    cen.style.filter="";
+  }
+  if(config.tema==="claro") document.documentElement.setAttribute("data-theme","light");
+  else if(config.tema==="escuro") document.documentElement.setAttribute("data-theme","dark");
+  else document.documentElement.removeAttribute("data-theme");
+  var mt=document.querySelector('meta[name="theme-color"]');
+  if(mt) mt.setAttribute("content", tem ? "#0a0b11" : (config.tema==="claro"?"#f1eee7":"#0f1018"));
 }
 
 /* =========================================================
    3. Desenho da estante
    ========================================================= */
+var TRACO_ESTRELA="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.4 6.2 20.4l1.1-6.4L2.6 9.4l6.5-.9z";
+function svgEstrela(cls){
+  return '<svg viewBox="0 0 24 24" class="'+cls+'" aria-hidden="true"><path d="'+TRACO_ESTRELA+'"/></svg>';
+}
+/* v de 0 a 1: vazia, metade ou cheia */
+function umaEstrela(v){
+  if(v>=1)  return '<span class="est">'+svgEstrela("on")+'</span>';
+  if(v>=.5) return '<span class="est">'+svgEstrela("off")+svgEstrela("on meia")+'</span>';
+  return '<span class="est">'+svgEstrela("off")+'</span>';
+}
+function fmtNota(n){
+  n=Math.round((Number(n)||0)*2)/2;
+  return (n%1?n.toFixed(1):String(n)).replace(".",",");
+}
 function estrelas(n){
-  var s='<span class="estrelas" aria-label="'+n+' de 5">',i;
-  for(i=1;i<=5;i++) s+='<svg viewBox="0 0 24 24" class="'+(i<=n?"on":"off")+'"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.4 6.2 20.4l1.1-6.4L2.6 9.4l6.5-.9z"/></svg>';
+  n=Number(n)||0;
+  var s='<span class="estrelas" aria-label="nota '+fmtNota(n)+' de 5">',i;
+  for(i=1;i<=5;i++) s+=umaEstrela(Math.max(0,Math.min(1,n-(i-1))));
   return s+"</span>";
 }
 function estreito(){ return window.innerWidth < 760; }
@@ -597,7 +928,10 @@ function pintar(){
   } else {
     palco.innerHTML = visao==="estante"?montarEstante(lista):grade(lista);
   }
-  $("#rodape").textContent = modo==="db"?"Sincronizado entre seus aparelhos.":"Salvo neste navegador.";
+  $("#rodape").innerHTML = modo==="supabase"
+    ? '<span class="selo-modo">Sincronizado na nuvem</span>'
+    : (modo==="db" ? '<span class="selo-modo">Sincronizado entre seus aparelhos</span>'
+                   : '<span class="selo-modo offline">Salvo só neste navegador</span>');
 }
 
 /* =========================================================
@@ -716,12 +1050,17 @@ function abrirForm(l){
         return '<button type="button" data-s="'+s+'" aria-pressed="'+(statusAtual===s)+'">'+STATUS_TXT[s]+'</button>';
       }).join("")+'</div></div>'+
 
-    '<div class="campo"><span class="rotulo-grupo">Nota</span><div style="display:flex;align-items:center">'+
-      '<div class="nota-input" id="f-nota">'+
-      [1,2,3,4,5].map(function(i){
-        return '<button type="button" data-n="'+i+'" aria-label="'+i+' de 5"><svg viewBox="0 0 24 24" class="'+(i<=notaAtual?"on":"off")+'"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.4 6.2 20.4l1.1-6.4L2.6 9.4l6.5-.9z"/></svg></button>';
-      }).join("")+'</div>'+
-      '<button type="button" class="limpar-nota" data-n="0">limpar</button></div></div>'+
+    '<div class="campo"><span class="rotulo-grupo">Nota</span>'+
+      '<div class="nota-mostra">'+
+        '<span id="f-nota-estrelas">'+estrelas(notaAtual)+'</span>'+
+        '<span class="nota-valor'+(notaAtual?"":" zero")+'" id="f-nota-valor">'+(notaAtual?fmtNota(notaAtual):"0")+'</span>'+
+      '</div>'+
+      '<div class="nota-trilha">'+
+        '<input type="range" id="f-nota" min="0" max="5" step="0.5" value="'+(Number(notaAtual)||0)+'" '+
+        'aria-label="Nota de 0 a 5, em intervalos de meia estrela">'+
+        '<div class="nota-marcas"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>'+
+      '</div>'+
+      '<div class="dica-nota">Arraste para escolher. Cada passo vale meia estrela.</div></div>'+
 
     '<div class="campo"><label for="f-resenha">O que você achou</label>'+
       '<textarea id="f-resenha" placeholder="Escreva com suas palavras. Ninguém mais vai ler.">'+esc(l.resenha||"")+'</textarea></div>'+
@@ -758,17 +1097,19 @@ function abrirForm(l){
     statusAtual=b.dataset.s; tocar();
     Array.prototype.forEach.call(this.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
   };
-  /* nota */
+  /* nota: o slider manda, as estrelas acompanham */
   function pintarNota(){
-    Array.prototype.forEach.call($("#f-nota").querySelectorAll("svg"),function(sv,i){
-      sv.setAttribute("class",(i+1)<=notaAtual?"on":"off");
-    });
+    $("#f-nota-estrelas").innerHTML=estrelas(notaAtual);
+    var v=$("#f-nota-valor");
+    v.textContent = notaAtual?fmtNota(notaAtual):"0";
+    v.className = "nota-valor"+(notaAtual?"":" zero");
   }
-  $("#f-nota").onclick=function(e){
-    var b=e.target.closest("button[data-n]"); if(!b) return;
-    notaAtual=Number(b.dataset.n); tocar(); pintarNota();
+  var ultimaNota=notaAtual;
+  $("#f-nota").oninput=function(){
+    notaAtual=Number(this.value)||0;
+    if(notaAtual!==ultimaNota){ ultimaNota=notaAtual; tocar(); }
+    pintarNota();
   };
-  corpo.querySelector(".limpar-nota").onclick=function(){notaAtual=0;pintarNota();};
   /* cor */
   $("#f-cor").onclick=function(e){
     var b=e.target.closest("button[data-c]"); if(!b) return;
@@ -847,9 +1188,17 @@ function abrirForm(l){
       resenha:$("#f-resenha").value.trim(),frase:$("#f-frase").value.trim(),
       capa:rascunhoCapa||"",cor:corAtual,criadoEm:l.criadoEm||Date.now()
     };
-    Promise.resolve(pronto).then(function(){return salvarLivro(nl);});
     tocar(); fechar();
     recado(novo?"“"+nl.titulo+"” entrou na estante":"Alterações salvas");
+    /* a capa vira arquivo no Storage antes de o livro ir para o banco */
+    Promise.resolve(pronto)
+      .then(function(){ return garantirImagem(nl.capa,"capas"); })
+      .then(function(url){ nl.capa=url; return salvarLivro(nl); })
+      .catch(function(e){
+        console.error("[Ex-Libris] falha no salvamento:",e);
+        aviso("Não consegui concluir o salvamento: "+(e.message||e));
+        salvarLivro(nl);
+      });
   };
 
   corpo.scrollTop=0;
@@ -934,7 +1283,9 @@ function importarCapa(url){
     return comprimir(b);
   });
 }
-function comprimir(file){
+function comprimir(file,opcoes){
+  var passos=(opcoes&&opcoes.passos)||[[560,.74],[400,.62],[300,.5]];
+  var limite=(opcoes&&opcoes.limite)||150000;
   return new Promise(function(res,rej){
     var fr=new FileReader(); fr.onerror=rej;
     fr.onload=function(){
@@ -944,18 +1295,25 @@ function comprimir(file){
           var k=Math.min(1,maxL/Math.max(img.width,img.height));
           var cv=document.createElement("canvas");
           cv.width=Math.round(img.width*k); cv.height=Math.round(img.height*k);
-          cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+          var ctx=cv.getContext("2d");
+          ctx.drawImage(img,0,0,cv.width,cv.height);
           return cv.toDataURL("image/jpeg",q);
         }
-        var u=gerar(560,.74);
-        if(u.length>150000) u=gerar(400,.62);
-        if(u.length>150000) u=gerar(300,.5);
+        var u="",i;
+        for(i=0;i<passos.length;i++){
+          u=gerar(passos[i][0],passos[i][1]);
+          if(u.length<=limite) break;
+        }
         res(u);
       };
       img.src=fr.result;
     };
     fr.readAsDataURL(file);
   });
+}
+/* o fundo ocupa a tela inteira, então aceita resolução maior que uma capa */
+function comprimirFundo(file){
+  return comprimir(file,{passos:[[1600,.78],[1280,.7],[1000,.62],[800,.52]],limite:420000});
 }
 
 /* =========================================================
@@ -978,10 +1336,138 @@ $("#trilho").addEventListener("click",function(e){
   }
   pintar();
 });
-$("#titulo").onclick=function(){
-  var t=prompt("Nome da estante",config.titulo||"Ex-Libris");
-  if(t&&t.trim()){config.titulo=t.trim();salvarConfig();recado("Nome atualizado");}
-};
+$("#titulo").onclick=function(){tocar();abrirAjustes();};
+$("#btn-ajustes").onclick=function(){tocar();abrirAjustes();};
+
+/* =========================================================
+   9. Ajustes: nome, foto de fundo, escurecimento, desfoque, tema
+   ========================================================= */
+function abrirAjustes(){
+  var rascunho={
+    titulo:config.titulo||"Ex-Libris",
+    veu:Number(config.veu)||0,
+    desfoque:Number(config.desfoque)||0,
+    tema:config.tema||"auto",
+    imagem:(fundo&&fundo.imagem)||""
+  };
+  $("#folha-titulo").textContent="Ajustes";
+  corpo.innerHTML=
+    '<div class="secao">'+
+      '<div class="campo"><label for="a-nome">Nome da estante</label>'+
+      '<input type="text" id="a-nome" value="'+esc(rascunho.titulo)+'" autocapitalize="words" maxlength="40"></div>'+
+    '</div>'+
+
+    '<div class="secao"><h3>Foto de fundo</h3>'+
+    '<p class="ajuda">Use uma foto de vocês, uma paisagem, o que quiser. Ela fica atrás da estante e é escurecida para o texto continuar legível.</p>'+
+      '<div class="previa-fundo" id="a-previa">'+
+        '<div class="camada" id="a-previa-camada"></div>'+
+        '<span class="amostra" id="a-amostra">Ex-Libris</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        '<button type="button" class="btn" id="a-escolher">'+(rascunho.imagem?"Trocar foto":"Escolher foto")+'</button>'+
+        (rascunho.imagem?'<button type="button" class="btn btn-perigo" id="a-remover">Remover</button>':"")+
+        '<input type="file" id="a-arquivo" accept="image/*" hidden>'+
+      '</div>'+
+
+      '<div class="campo" style="margin-top:22px"><label for="a-veu">Escurecimento</label>'+
+        '<div class="linha-slider"><input type="range" id="a-veu" min="0" max="90" step="5" value="'+rascunho.veu+'">'+
+        '<span class="valor-slider" id="a-veu-val">'+rascunho.veu+'%</span></div></div>'+
+
+      '<div class="campo"><label for="a-desfoque">Desfoque</label>'+
+        '<div class="linha-slider"><input type="range" id="a-desfoque" min="0" max="20" step="1" value="'+rascunho.desfoque+'">'+
+        '<span class="valor-slider" id="a-desfoque-val">'+rascunho.desfoque+'px</span></div></div>'+
+    '</div>'+
+
+    '<div class="secao"><h3>Tema</h3>'+
+      '<div class="segmento" id="a-tema">'+
+        [["auto","Automático"],["claro","Claro"],["escuro","Escuro"]].map(function(t){
+          return '<button type="button" data-t="'+t[0]+'" aria-pressed="'+(rascunho.tema===t[0])+'">'+t[1]+'</button>';
+        }).join("")+
+      '</div>'+
+      '<p class="ajuda" style="margin-top:12px;margin-bottom:0">Automático segue a configuração do seu celular.</p>'+
+    '</div>'+
+
+    '<div class="acoes-fixas">'+
+      '<button class="btn btn-forte btn-larga" id="a-salvar">Salvar ajustes</button>'+
+      '<button class="btn btn-texto" id="a-cancelar">Cancelar</button>'+
+    '</div>';
+
+  /* seção de sincronização */
+  if(modo==="supabase"){
+    var alvo=corpo.querySelector(".acoes-fixas");
+    var bloco=document.createElement("div");
+    bloco.className="secao";
+    bloco.innerHTML='<h3>Sincronização</h3>'+
+      '<p class="ajuda" style="margin-bottom:0">Os livros estão salvos na nuvem e aparecem em qualquer aparelho que abrir este endereço. '+
+      'Não é preciso entrar com senha.</p>';
+    corpo.insertBefore(bloco,alvo);
+  }
+
+  var prev=$("#a-previa"), camada=$("#a-previa-camada");
+  function pintarPrevia(){
+    prev.style.backgroundImage = rascunho.imagem?'url("'+rascunho.imagem+'")':"";
+    prev.style.filter = "";
+    camada.style.background="#0a0b11";
+    camada.style.opacity = rascunho.imagem ? rascunho.veu/100 : 0;
+    camada.style.backdropFilter = rascunho.desfoque ? "blur("+Math.round(rascunho.desfoque/2)+"px)" : "";
+    $("#a-amostra").textContent = $("#a-nome").value.trim()||"Ex-Libris";
+    $("#a-amostra").style.color = rascunho.imagem ? "#f2efe8" : "";
+    if(!rascunho.imagem){
+      $("#a-amostra").style.opacity=".55";
+      $("#a-amostra").textContent="Nenhuma foto escolhida";
+    } else { $("#a-amostra").style.opacity="1"; }
+  }
+  pintarPrevia();
+
+  $("#a-nome").oninput=pintarPrevia;
+  $("#a-escolher").onclick=function(){$("#a-arquivo").click();};
+  $("#a-arquivo").onchange=function(e){
+    var f=e.target.files&&e.target.files[0]; if(!f) return;
+    $("#a-escolher").textContent="Processando…";
+    comprimirFundo(f).then(function(u){
+      rascunho.imagem=u;
+      if(!rascunho.veu) rascunho.veu=55, $("#a-veu").value=55, $("#a-veu-val").textContent="55%";
+      $("#a-escolher").textContent="Trocar foto";
+      pintarPrevia();
+    }).catch(function(){
+      $("#a-escolher").textContent="Escolher foto";
+      aviso("Não consegui ler essa imagem. Tente um JPG ou PNG.");
+    });
+  };
+  if($("#a-remover")) $("#a-remover").onclick=function(){
+    rascunho.imagem=""; pintarPrevia(); this.remove();
+    $("#a-escolher").textContent="Escolher foto";
+  };
+  $("#a-veu").oninput=function(){
+    rascunho.veu=Number(this.value); $("#a-veu-val").textContent=rascunho.veu+"%"; pintarPrevia();
+  };
+  $("#a-desfoque").oninput=function(){
+    rascunho.desfoque=Number(this.value); $("#a-desfoque-val").textContent=rascunho.desfoque+"px"; pintarPrevia();
+  };
+  $("#a-tema").onclick=function(e){
+    var b=e.target.closest("button[data-t]"); if(!b) return;
+    rascunho.tema=b.dataset.t; tocar();
+    Array.prototype.forEach.call(this.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
+  };
+
+  $("#a-cancelar").onclick=fechar;
+  $("#a-salvar").onclick=function(){
+    var trocouFoto = rascunho.imagem !== ((fundo&&fundo.imagem)||"");
+    config.titulo=($("#a-nome").value.trim())||"Ex-Libris";
+    config.veu=rascunho.veu; config.desfoque=rascunho.desfoque; config.tema=rascunho.tema;
+    tocar(); fechar(); recado("Ajustes salvos");
+    if(trocouFoto){
+      garantirImagem(rascunho.imagem,"fundos").then(function(url){
+        fundo={imagem:url}; salvarFundo(); salvarConfig();
+      });
+    } else {
+      salvarConfig();
+    }
+  };
+
+  corpo.scrollTop=0;
+  abrirFolha();
+}
 
 /* sombra na barra quando ela gruda */
 var sentinela=document.createElement("div");
@@ -1002,7 +1488,8 @@ window.addEventListener("resize",function(){
 });
 
 pintar();
-Promise.resolve(pronto).then(pintar);
+aplicarCenario();
+Promise.resolve(pronto).then(function(){ aplicarCenario(); pintar(); });
 })();
 </script>
 </body>
